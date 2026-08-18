@@ -1,37 +1,74 @@
-#!/bin/bash
-# ^^^ THIS IS FOR SYNTAX HIGHLIGHT!
+# Tibix's Zsh configuration.
+#
+# Keep this deliberately small. The previous framework is preserved under
+# vendor/zsh-config-d75f129 in the image source repository.
 
-#. /etc/profile
+typeset -g TIBIX_ZSH_DIR="${TIBIX_ZSH_DIR:-/usr/share/zsh-config}"
 
-#####################################################################
-# INITIALIZATION
-# --------------
-# Here goes initialization thing.
-# DO NOT CHANGE ANYTHING, UNLESS YOU ARE KNOW WHAT ARE YOU DOING!
-#####################################################################
-# Get real script path.
-CONFIG_PATH=''
-CONFIG_FOUND=0
+bindkey -e
 
-if [ -h ${HOME}/.zshrc ]; then
-    CONFIG_PATH=`readlink ${HOME}/.zshrc`
-    CONFIG_PATH=`dirname ${CONFIG_PATH}`
-    if [ ${#CONFIG_PATH[@]} -gt 0 ]; then
-        CONFIG_FOUND=1
-    else
-        echo "CONFIG_PATH has invalid value: '${CONFIG_PATH}'"
-    fi
+setopt complete_aliases
+setopt correct
+setopt extended_history
+setopt hist_expire_dups_first
+setopt hist_find_no_dups
+setopt hist_ignore_dups
+setopt hist_ignore_space
+setopt hist_reduce_blanks
+setopt hist_verify
+setopt inc_append_history
+setopt interactive_comments
+setopt share_history
+setopt typeset_silent
+
+HISTFILE="${HOME}/.histfile"
+HISTSIZE=100000
+SAVEHIST=100000
+
+export EDITOR="${EDITOR:-nano}"
+
+# User-local applications and SDKs used on the current workstation.
+typeset -U path PATH
+[[ -d "${HOME}/.local/bin" ]] && path=("${HOME}/.local/bin" $path)
+
+if [[ -d "${HOME}/fastsrc/VitaLife/deps/vitasdk" ]]; then
+    export VITASDK="${HOME}/fastsrc/VitaLife/deps/vitasdk"
+    path=("${VITASDK}/bin" $path)
 fi
 
-# Some sourcing.
-source ${CONFIG_PATH}/zsh/lib/logger.lib.sh
-
-if [ $CONFIG_FOUND -eq 1 ]; then
-    for config_file in `ls ${CONFIG_PATH}/zsh/ | sort | grep zsh`; do
-        source ${CONFIG_PATH}/zsh/${config_file}
-    done
-else
-    error "Failed to load configuration."
+# Add Homebrew completions before initializing Zsh completion. Homebrew itself
+# is placed on PATH by Bazzite.
+if (( ${+commands[brew]} )); then
+    brew_prefix="$(brew --prefix 2>/dev/null)"
+    [[ -d "${brew_prefix}/share/zsh-completions" ]] && \
+        fpath=("${brew_prefix}/share/zsh-completions" $fpath)
+    unset brew_prefix
 fi
 
-set -B
+autoload -Uz colors compinit
+colors
+compinit
+
+_ujust_completion() {
+    local -a recipes
+    recipes=(${(s: :)"$(ujust --summary 2>/dev/null)"})
+    _describe "ujust recipe" recipes
+}
+compdef _ujust_completion ujust
+
+# Retain the useful Bazzite-provided aliases plus Atuin and zoxide hooks.
+[[ -r /usr/share/bazzite-cli/bling.sh ]] && \
+    source /usr/share/bazzite-cli/bling.sh
+
+# Fedora's packaged autosuggestions plugin.
+[[ -r /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]] && \
+    source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+
+source "${TIBIX_ZSH_DIR}/keys.zsh"
+source "${TIBIX_ZSH_DIR}/prompt.zsh"
+
+alias got="git"
+alias wb-dev='cd ~/fastsrc/WinBoat && npm run dev'
+
+# Optional personal additions that are independent of the old framework.
+[[ -r "${HOME}/.zshrc.local" ]] && source "${HOME}/.zshrc.local"

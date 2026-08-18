@@ -43,10 +43,12 @@ The repository uses the current Universal Blue template layout:
 - `system_files/` is copied over the image filesystem during the build.
 - `image-template.env` defines publishing and image metadata.
 
-The Zsh configuration is vendored under
-`system_files/usr/share/zsh-config/`. Its exact source commit is recorded in
-the adjacent `SNAPSHOT.md`; no file is fetched from the old shared account at
-build time.
+The active Zsh configuration is maintained under
+`system_files/usr/share/zsh-config/`. It preserves the existing prompt and
+Atuin integration while removing unused Mamba, Ruby, pyenv, and FBTerm
+plumbing. The unchanged historical snapshot and its source metadata live in
+`vendor/zsh-config-d75f129/`; no file is fetched from the old shared account
+at build time.
 
 ## Signature verification
 
