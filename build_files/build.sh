@@ -46,7 +46,8 @@ dnf5 install -y \
     uv \
     virt-viewer \
     zsh \
-    zsh-autosuggestions
+    zsh-autosuggestions \
+    zerotier-one
 
 # ngrok does not publish a versioned v3 archive at this endpoint. This keeps
 # the behavior of the previous image and follows ngrok's stable v3 release.
