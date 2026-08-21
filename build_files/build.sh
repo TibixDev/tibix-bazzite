@@ -66,6 +66,7 @@ dnf5 install -y \
 
 systemctl enable docker.socket
 systemctl enable podman.socket
+systemctl enable zerotier-one.service
 systemctl enable ublue-system-setup.service
 systemctl --global enable ublue-user-setup.service
 
