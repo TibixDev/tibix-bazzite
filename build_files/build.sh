@@ -31,7 +31,6 @@ dnf5 install -y \
     flatpak-builder \
     fsearch \
     git-lfs \
-    goverlay \
     klassy \
     libusb1-devel \
     perf \
