@@ -1,0 +1,169 @@
+#!/usr/bin/python3
+"""Migrate KDE screenshot shortcuts once, without restarting the compositor."""
+
+import argparse
+import configparser
+import fcntl
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+COMPONENT = "lumine-capture.desktop"
+LOCAL_MARKER = "X-TibixBazzite-LocalInstall=true"
+MODIFIERS = {"Shift": 0x02000000, "Ctrl": 0x04000000, "Alt": 0x08000000, "Meta": 0x10000000}
+
+
+def read_desktop(filename):
+    config = configparser.ConfigParser(interpolation=None, strict=False)
+    config.optionxform = str
+    config.read(filename)
+    return config
+
+
+def key_code(shortcut):
+    parts = shortcut.split("+")
+    key = parts.pop()
+    if key == "Print":
+        code = 0x01000009
+    elif len(key) == 1:
+        code = ord(key.upper())
+    else:
+        raise ValueError(f"Unsupported shortcut key: {key}")
+    for modifier in parts:
+        code |= MODIFIERS[modifier]
+    return code
+
+
+def desktop_actions(filename):
+    config = read_desktop(filename)
+    for section in config.sections():
+        if section == "Desktop Entry":
+            action = "_launch"
+        elif section.startswith("Desktop Action "):
+            action = section.removeprefix("Desktop Action ")
+        else:
+            continue
+        shortcuts = config[section].get("X-KDE-Shortcuts", "")
+        if shortcuts:
+            yield action, [key_code(key) for key in shortcuts.split(",")]
+
+
+class Shortcuts:
+    def __init__(self):
+        from gi.repository import Gio, GLib
+
+        self.Gio, self.GLib = Gio, GLib
+        self.bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+
+    def call(self, method, signature, *args):
+        result = self.bus.call_sync(
+            "org.kde.kglobalaccel", "/kglobalaccel", "org.kde.KGlobalAccel",
+            method, self.GLib.Variant(signature, args), None,
+            self.Gio.DBusCallFlags.NONE, 5000, None,
+        ).unpack()
+        return result[0] if result else None
+
+    def register(self, action):
+        self.call("doRegister", "(as)", action)
+
+    def owner(self, key):
+        return self.call("action", "(i)", key)
+
+    def get(self, action):
+        return self.call("shortcut", "(as)", action)
+
+    def set(self, action, keys):
+        # NoAutoloading = 4: persist this choice instead of reloading old keys.
+        actual = self.call("setShortcut", "(asaiu)", action, keys, 4)
+        if set(actual) != set(keys):
+            raise RuntimeError(f"KDE refused shortcuts for {action[0]} / {action[1]}")
+
+
+def migrate(shortcuts, actions, replaceable):
+    for action, keys in actions:
+        identity = [COMPONENT, action, "LumineCapture", action]
+        shortcuts.register(identity)
+        selected = set(shortcuts.get(identity))
+        for key in keys:
+            owner = shortcuts.owner(key)
+            if owner and owner[:2] != identity[:2]:
+                if owner[0] not in replaceable:
+                    print(f"Keeping existing shortcut {key:#x} for {owner[0]}")
+                    continue
+                remaining = [other for other in shortcuts.get(owner) if other != key]
+                shortcuts.set(owner, remaining)
+            selected.add(key)
+        shortcuts.set(identity, sorted(selected))
+
+
+def promote_image_install(data, state, system_entry, system_binary):
+    local_entry = data / "applications" / COMPONENT
+    if not (system_binary.is_file() and system_entry.is_file() and local_entry.is_file()):
+        return False
+    if LOCAL_MARKER not in local_entry.read_text():
+        return False
+    shutil.copy2(local_entry, state / "local-install.desktop")
+    launcher = data / "tibix-bazzite/lumine-capture/bin/lumine-capture"
+    launcher.parent.mkdir(parents=True, exist_ok=True)
+    temporary_link = launcher.with_suffix(".new")
+    temporary_link.unlink(missing_ok=True)
+    temporary_link.symlink_to(system_binary)
+    temporary_link.replace(launcher)
+    local_entry.unlink()
+    return True
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--force", action="store_true", help="reapply screenshot shortcut migration")
+    args = parser.parse_args()
+    if "KDE" not in os.environ.get("XDG_CURRENT_DESKTOP", "").split(":"):
+        print("LumineCapture: shortcut setup waits for a KDE session.")
+        return
+
+    data = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share")
+    state = Path(os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state") / "tibix-bazzite/lumine-capture"
+    config = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    state.mkdir(parents=True, exist_ok=True)
+    with (state / "setup.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        local_entry = data / "applications" / COMPONENT
+        system_entry = Path("/usr/share/applications") / COMPONENT
+        # A local bootstrap must not shadow the image's updated /usr/bin build.
+        if promote_image_install(data, state, system_entry, Path("/usr/bin/lumine-capture")):
+            subprocess.run(["kbuildsycoca6", "--noincremental"], check=True)
+
+        marker = state / "shortcuts-v1.done"
+        if marker.exists() and not args.force:
+            return
+        entry = local_entry if local_entry.is_file() else system_entry
+        if not entry.is_file():
+            raise RuntimeError("Install LumineCapture and its desktop entry before setting up shortcuts")
+
+        backup = state / "kglobalshortcutsrc.before-lumine"
+        if not backup.exists() and (config / "kglobalshortcutsrc").exists():
+            shutil.copy2(config / "kglobalshortcutsrc", backup)
+
+        replaceable = {"org.kde.spectacle.desktop", "org.flameshot.Flameshot.desktop"}
+        # KDE assigns arbitrary net.local.* names to custom command shortcuts.
+        for directory in (data / "applications", data / "kglobalaccel"):
+            for candidate in directory.glob("*.desktop"):
+                desktop = read_desktop(candidate)
+                command = desktop.get("Desktop Entry", "Exec", fallback="")
+                if "flameshot" in command.lower():
+                    replaceable.add(candidate.name)
+
+        subprocess.run(["kbuildsycoca6", "--noincremental"], check=True)
+        migrate(Shortcuts(), list(desktop_actions(entry)), replaceable)
+        marker.write_text("1\n")
+        print(f"LumineCapture screenshot shortcuts configured. Backup: {backup}")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as error:
+        print(f"LumineCapture setup failed (will retry at next login): {error}", file=sys.stderr)
+        sys.exit(1)

@@ -1,0 +1,35 @@
+[Desktop Entry]
+Type=Application
+Name=LumineCapture
+GenericName=Screenshot Tool
+Comment=Capture, annotate, and recognize text in screenshots
+Exec=/usr/bin/lumine-capture
+Icon=lumine-capture
+Terminal=false
+StartupNotify=false
+Categories=Graphics;
+Keywords=screenshot;capture;annotate;ocr;
+StartupWMClass=lumine-capture
+X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2
+X-KDE-Shortcuts=Print,Meta+Shift+S
+Actions=Region;FullScreenSave;FullScreenCopy;ActiveWindow;
+
+[Desktop Action Region]
+Name=Capture a region to the clipboard
+Exec=/usr/bin/lumine-capture --region --to c
+X-KDE-Shortcuts=Ctrl+Print
+
+[Desktop Action FullScreenSave]
+Name=Save the entire desktop
+Exec=/usr/bin/lumine-capture --full --to s
+X-KDE-Shortcuts=Shift+Print
+
+[Desktop Action FullScreenCopy]
+Name=Copy the entire desktop
+Exec=/usr/bin/lumine-capture --full --to c
+X-KDE-Shortcuts=Ctrl+Shift+Print
+
+[Desktop Action ActiveWindow]
+Name=Copy the active window
+Exec=/usr/bin/lumine-capture --window --to c
+X-KDE-Shortcuts=Alt+Print

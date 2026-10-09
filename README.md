@@ -50,6 +50,12 @@ plumbing. The unchanged historical snapshot and its source metadata live in
 `vendor/zsh-config-d75f129/`; no file is fetched from the old shared account
 at build time.
 
+LumineCapture is the screenshot application, with a pinned release package,
+KWin capture permissions, launcher actions, and a one-time migration of the
+Flameshot/Spectacle screenshot shortcuts. Its build module is kept under
+`build_files/lumine-capture/`. See [the integration guide](docs/lumine-capture.md)
+for shortcuts, local installation without a reboot, and release updates.
+
 ## Signature verification
 
 Published images are signed with the public key in `cosign.pub`:

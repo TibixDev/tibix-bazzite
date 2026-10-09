@@ -63,6 +63,9 @@ dnf5 install -y \
     https://github.com/Umio-Yasuno/amdgpu_top/releases/download/v0.11.0/amdgpu_top-0.11.0-1.x86_64.rpm \
     https://github.com/PancakeTAS/lsfg-vk/releases/download/v1.0.0/lsfg-vk-1.0.0.x86_64.rpm
 
+# Screenshot application, desktop permissions, and KDE shortcut integration.
+/ctx/lumine-capture/install.sh
+
 systemctl enable docker.socket
 systemctl enable podman.socket
 systemctl enable zerotier-one.service
