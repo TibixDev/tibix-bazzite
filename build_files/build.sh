@@ -26,13 +26,13 @@ dnf5 install -y \
     docker-ce \
     docker-ce-cli \
     docker-compose-plugin \
-    dotool \
     dwarfs \
     flatpak-builder \
     fsearch \
     git-lfs \
     klassy \
     libusb1-devel \
+    libxkbcommon \
     perf \
     python3-vkbasalt-cli \
     qdirstat \
@@ -48,6 +48,9 @@ dnf5 install -y \
     zsh-autosuggestions \
     zerotier-one
 
+# dotool reloads host devices in its RPM scripts; install it for an offline image.
+/ctx/dotool/install.sh
+
 # ngrok does not publish a versioned v3 archive at this endpoint. This keeps
 # the behavior of the previous image and follows ngrok's stable v3 release.
 wget \
@@ -58,10 +61,16 @@ mkdir /tmp/ngrok-install
 tar -xf /tmp/ngrok.tar.gz -C /tmp/ngrok-install
 install -Dm0755 /tmp/ngrok-install/ngrok /usr/bin/ngrok
 
-# Standalone RPMs retained at the versions used by the previous image.
-dnf5 install -y \
-    https://github.com/Umio-Yasuno/amdgpu_top/releases/download/v0.11.0/amdgpu_top-0.11.0-1.x86_64.rpm \
+# Standalone upstream RPMs, pinned and verified before installation.
+curl --fail --location --retry 3 --output /tmp/amdgpu_top.rpm \
+    https://github.com/Umio-Yasuno/amdgpu_top/releases/download/v0.11.5/amdgpu_top-0.11.5-1.x86_64.rpm
+curl --fail --location --retry 3 --output /tmp/lsfg-vk.rpm \
     https://github.com/PancakeTAS/lsfg-vk/releases/download/v1.0.0/lsfg-vk-1.0.0.x86_64.rpm
+sha256sum --check <<'EOF'
+ef224f5d1c8e7621a2f309c3d465d05a18c4c660d48da5edc215c7c4e6d53e71  /tmp/amdgpu_top.rpm
+77749bbd5bddd19ea38b090e0cec8912e9285a92b9345429df924dc33cc47786  /tmp/lsfg-vk.rpm
+EOF
+dnf5 install -y /tmp/amdgpu_top.rpm /tmp/lsfg-vk.rpm
 
 # Screenshot application, desktop permissions, and KDE shortcut integration.
 /ctx/lumine-capture/install.sh
