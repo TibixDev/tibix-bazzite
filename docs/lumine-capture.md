@@ -1,14 +1,14 @@
 # LumineCapture integration
 
 LumineCapture is the image's screenshot application. The image installs the
-upstream **0.2.0** release RPM, including its binary, icons, fonts, and licenses.
+upstream **0.4.0** release RPM, including its binary, icons, fonts, and licenses.
 It needs no background screenshot daemon. OCR models are downloaded from the
 application when needed; this package uses CPU OCR.
 
 ## Layout
 
 - `build_files/lumine-capture/package.env` pins the release and SHA-256 from
-  [the upstream release](https://github.com/Netflate/LumineCapture/releases/tag/v0.2.0).
+  [the upstream release](https://github.com/Netflate/LumineCapture/releases/tag/v0.4.0).
 - `build_files/lumine-capture/install.sh` verifies and installs the RPM during
   the image build. `build_files/build.sh` calls this module.
 - `build_files/lumine-capture/lumine-capture.desktop` defines the application,
@@ -62,7 +62,7 @@ From this repository, in your KDE session:
 The installer needs `curl`, `rpm2cpio`, `cpio`, `desktop-file-validate`, KDE 6,
 and Python with PyGObject, all present on this Bazzite system. It verifies the
 RPM, checks the executable, and installs under
-`${XDG_DATA_HOME:-~/.local/share}/tibix-bazzite/lumine-capture/0.2.0/`.
+`${XDG_DATA_HOME:-~/.local/share}/tibix-bazzite/lumine-capture/0.4.0/`.
 The application menu and shortcuts use that release directly, independent of
 the source checkout or its `target/` directory. A `~/.local/bin/lumine-capture`
 symlink also provides the terminal command.
